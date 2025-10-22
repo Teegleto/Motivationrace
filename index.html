@@ -4,18 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>race</title>
-    <meta name="description" content="Full-screen word that changes on tap/click." />
+    <meta name="description" content="Full-screen word with a button to cycle through a list." />
     <style>
       :root {
         --bg: #ffffff;
         --fg: #111111;
+        --gap: 24px;
       }
 
-      html, body {
-        height: 100%;
-        margin: 0;
-      }
-
+      html, body { height: 100%; margin: 0; }
       body {
         background: var(--bg);
         color: var(--fg);
@@ -27,35 +24,43 @@
         place-items: center;
       }
 
-      /* Container ensures perfect centering and gives JS a box to fit text within */
       .stage {
         width: 100vw;
-        height: 100svh;      /* better on mobile */
-        display: grid;
-        place-items: center;
-        padding: 4vmin;      /* tiny breathing room */
+        height: 100svh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4vmin;
+        gap: var(--gap);
         user-select: none;
+        text-align: center;
       }
 
-      /* The word */
       #word {
         margin: 0;
         font-weight: 700;
-        line-height: 1;
         letter-spacing: 0.02em;
-        white-space: nowrap; /* keep on one line */
-        text-align: center;
-        /* A safe starting size; JS will resize precisely */
-        font-size: 20vw;
-        cursor: pointer;
+        line-height: 1;
+        white-space: nowrap;
+        font-size: 20vw; /* JS will refine to fit */
       }
 
-      /* Accessibility focus style if using keyboard */
-      #word:focus {
-        outline: none;
-        text-decoration: underline;
-        text-underline-offset: 0.15em;
+      #nextBtn {
+        appearance: none;
+        border: 1px solid #e5e7eb;
+        background: #f8f9fb;
+        color: #111111;
+        padding: 0.9rem 1.2rem;
+        border-radius: 999px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
       }
+      #nextBtn:hover { background: #f1f3f7; }
+      #nextBtn:active { transform: translateY(1px); }
+      #nextBtn:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
 
       @media (prefers-reduced-motion: reduce) {
         * { transition: none !important; animation: none !important; }
@@ -63,66 +68,55 @@
     </style>
   </head>
   <body>
-    <div class="stage">
-      <h1 id="word" role="button" tabindex="0" aria-label="Tap to change the word">race</h1>
+    <div class="stage" id="stage">
+      <h1 id="word">race</h1>
+      <button id="nextBtn" type="button" aria-label="Show a random word">Change word</button>
     </div>
 
     <script>
       // Words to cycle through
       const WORDS = ["race", "Woke", "quack", "waw", "teenage tech"];
 
-      const stage = document.querySelector(".stage");
+      const stage = document.getElementById("stage");
       const wordEl = document.getElementById("word");
+      const nextBtn = document.getElementById("nextBtn");
 
-      // Random choice not equal to the current word
+      // Pick a random next word that is not the current one
       function pickNext(current) {
         const choices = WORDS.filter(w => w !== current);
         return choices[Math.floor(Math.random() * choices.length)];
       }
 
-      // Fit the text to the stage using a fast binary search on font size
+      // Fit the word within the available area above the button
       function fitText() {
-        const maxPx = Math.max(window.innerWidth, window.innerHeight); // upper bound guess
-        let low = 10;          // min font size px
-        let high = Math.max(64, maxPx); // max font size px
-        const maxWidth = stage.clientWidth - 2;   // tiny buffer
-        const maxHeight = stage.clientHeight - 2; // tiny buffer
+        // Available width is the stage width, height is stage height minus button + gap
+        const maxWidth = stage.clientWidth - 2;
+        const controlsHeight = nextBtn.offsetHeight;
+        const styles = getComputedStyle(stage);
+        const gapPx = parseFloat(styles.gap) || 0;
+        const maxHeight = stage.clientHeight - controlsHeight - gapPx - 2;
 
-        // Binary search for the largest size that fits
-        for (let i = 0; i < 18; i++) { // ~18 iters is plenty
+        let low = 10;
+        let high = Math.max(64, Math.max(maxWidth, maxHeight));
+        for (let i = 0; i < 18; i++) {
           const mid = (low + high) / 2;
           wordEl.style.fontSize = mid + "px";
-
           const fits = wordEl.scrollWidth <= maxWidth && wordEl.scrollHeight <= maxHeight;
-          if (fits) {
-            low = mid;  // try bigger
-          } else {
-            high = mid; // too big
-          }
+          if (fits) low = mid; else high = mid;
         }
         wordEl.style.fontSize = Math.floor(low) + "px";
       }
 
-      // Change the word and refit
       function changeWord() {
         const current = wordEl.textContent;
         wordEl.textContent = pickNext(current);
         fitText();
       }
 
-      // Events: click/tap, keyboard, and resize
-      wordEl.addEventListener("click", changeWord);
-      wordEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          changeWord();
-        }
-      });
-
+      nextBtn.addEventListener("click", changeWord);
       window.addEventListener("resize", fitText);
       window.addEventListener("orientationchange", fitText);
 
-      // Initial fit once fonts settle
       const ready = () => fitText();
       if (document.fonts && document.fonts.ready) {
         document.fonts.ready.then(ready);
