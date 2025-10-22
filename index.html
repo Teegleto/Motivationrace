@@ -4,28 +4,131 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>race</title>
-    <meta name="description" content="A full-screen white page with the word ‘race’ centered and scaled perfectly." />
+    <meta name="description" content="Full-screen word that changes on tap/click." />
     <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #111111;
+      }
+
       html, body {
         height: 100%;
         margin: 0;
-        background: white;
-        color: black;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-family: "Poppins", "Helvetica Neue", Helvetica, Arial, sans-serif;
       }
 
-      h1 {
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: "Poppins", "Inter", system-ui, -apple-system, "Segoe UI",
+          Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        display: grid;
+        place-items: center;
+      }
+
+      /* Container ensures perfect centering and gives JS a box to fit text within */
+      .stage {
+        width: 100vw;
+        height: 100svh;      /* better on mobile */
+        display: grid;
+        place-items: center;
+        padding: 4vmin;      /* tiny breathing room */
+        user-select: none;
+      }
+
+      /* The word */
+      #word {
         margin: 0;
         font-weight: 700;
-        text-transform: lowercase;
-        text-align: center;
-        font-size: 20vw; /* scales with screen width */
         line-height: 1;
+        letter-spacing: 0.02em;
+        white-space: nowrap; /* keep on one line */
+        text-align: center;
+        /* A safe starting size; JS will resize precisely */
+        font-size: 20vw;
+        cursor: pointer;
       }
 
-      @media (min-aspect-ratio: 1/1) {
-        h1 {
-          font-size: 20vh; /* sc*
+      /* Accessibility focus style if using keyboard */
+      #word:focus {
+        outline: none;
+        text-decoration: underline;
+        text-underline-offset: 0.15em;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * { transition: none !important; animation: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <h1 id="word" role="button" tabindex="0" aria-label="Tap to change the word">race</h1>
+    </div>
+
+    <script>
+      // Words to cycle through
+      const WORDS = ["race", "Woke", "quack", "waw", "teenage tech"];
+
+      const stage = document.querySelector(".stage");
+      const wordEl = document.getElementById("word");
+
+      // Random choice not equal to the current word
+      function pickNext(current) {
+        const choices = WORDS.filter(w => w !== current);
+        return choices[Math.floor(Math.random() * choices.length)];
+      }
+
+      // Fit the text to the stage using a fast binary search on font size
+      function fitText() {
+        const maxPx = Math.max(window.innerWidth, window.innerHeight); // upper bound guess
+        let low = 10;          // min font size px
+        let high = Math.max(64, maxPx); // max font size px
+        const maxWidth = stage.clientWidth - 2;   // tiny buffer
+        const maxHeight = stage.clientHeight - 2; // tiny buffer
+
+        // Binary search for the largest size that fits
+        for (let i = 0; i < 18; i++) { // ~18 iters is plenty
+          const mid = (low + high) / 2;
+          wordEl.style.fontSize = mid + "px";
+
+          const fits = wordEl.scrollWidth <= maxWidth && wordEl.scrollHeight <= maxHeight;
+          if (fits) {
+            low = mid;  // try bigger
+          } else {
+            high = mid; // too big
+          }
+        }
+        wordEl.style.fontSize = Math.floor(low) + "px";
+      }
+
+      // Change the word and refit
+      function changeWord() {
+        const current = wordEl.textContent;
+        wordEl.textContent = pickNext(current);
+        fitText();
+      }
+
+      // Events: click/tap, keyboard, and resize
+      wordEl.addEventListener("click", changeWord);
+      wordEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          changeWord();
+        }
+      });
+
+      window.addEventListener("resize", fitText);
+      window.addEventListener("orientationchange", fitText);
+
+      // Initial fit once fonts settle
+      const ready = () => fitText();
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(ready);
+      } else {
+        window.addEventListener("load", ready);
+      }
+    </script>
+  </body>
+</html>
