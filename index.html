@@ -22,6 +22,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
+
+        /* Disable text selection globally (as requested) */
         -webkit-user-select: none;
         -moz-user-select: none;
         -ms-user-select: none;
@@ -61,20 +63,31 @@
       }
       #nextBtn:hover { background: #f1f3f7; }
       #nextBtn:active { transform: translateY(1px); }
+      #nextBtn:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
 
-      /* TEST MODE: visible 1-inch admin button with black box */
+      /* --- ADMIN BUTTON (TEST MODE VISIBLE) --- */
+      /* Use both inch and px for maximum reliability */
       #adminHotspot {
         position: fixed;
-        right: 0.3in;
+        right: 0.3in;            /* place away from edges */
         bottom: 0.3in;
-        width: 1in;
+        width: 1in;              /* primary size */
         height: 1in;
-        border: 2px solid black; /* visible for testing */
-        background: rgba(0, 0, 0, 0.05);
+        /* px fallback (CSS variable trick so both apply) */
+        width: max(1in, 96px);
+        height: max(1in, 96px);
+
+        display: block;
+        box-sizing: border-box;
+        border: 2px solid #000;  /* visible black box (testing) */
+        background: rgba(0,0,0,0.06);
         cursor: pointer;
-        z-index: 20;
+
+        z-index: 2147483647;     /* very top */
+        pointer-events: auto;
       }
 
+      /* Modal backdrop + dialog */
       .backdrop {
         position: fixed;
         inset: 0;
@@ -82,7 +95,7 @@
         display: none;
         align-items: center;
         justify-content: center;
-        z-index: 50;
+        z-index: 2147483000;
       }
       .backdrop[aria-hidden="false"] { display: flex; }
 
@@ -104,11 +117,7 @@
         margin-bottom: 0.75rem;
       }
 
-      .title {
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin: 0;
-      }
+      .title { font-size: 1.1rem; font-weight: 700; margin: 0; }
 
       .closeBtn {
         appearance: none;
@@ -119,6 +128,7 @@
         cursor: pointer;
         font-weight: 600;
       }
+      .closeBtn:hover { background: #f7f7f8; }
 
       .modalBody { display: grid; gap: 0.75rem; }
       .stack { display: grid; gap: 0.5rem; }
@@ -147,15 +157,24 @@
         transition: background 120ms ease, transform 120ms ease;
       }
       .btn:hover { background: #f1f3f7; }
+      .btn:active { transform: translateY(1px); }
 
-      .error {
-        color: #b00020;
-        font-size: 0.95rem;
-        min-height: 1.2em;
-      }
+      .error { color: #b00020; font-size: 0.95rem; min-height: 1.2em; }
 
       .list { margin: 0; padding-left: 1.2rem; }
       .list li { margin: 0.25rem 0; }
+
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #111111; --fg: #ffffff; --muted: #2b2b2b; }
+        #nextBtn { background: #1e1e1e; border-color: var(--muted); color: #fff; }
+        #nextBtn:hover { background: #242424; }
+        .modal { background: #151515; }
+        .input { background: #0f0f0f; border-color: var(--muted); color: #fff; }
+        .btn { background: #1e1e1e; border-color: var(--muted); color: #fff; }
+        .btn:hover { background: #242424; }
+        .closeBtn { border-color: var(--muted); color: #fff; }
+        .closeBtn:hover { background: #1e1e1e; }
+      }
     </style>
   </head>
   <body>
@@ -164,9 +183,10 @@
       <button id="nextBtn" type="button">Change word</button>
     </div>
 
-    <!-- Visible for testing -->
-    <button id="adminHotspot" aria-label="Open admin (testing box)"></button>
+    <!-- TEST VISIBLE ADMIN BUTTON -->
+    <button id="adminHotspot" aria-label="Open admin (testing)"></button>
 
+    <!-- Modal -->
     <div class="backdrop" id="backdrop" aria-hidden="true">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modalHeader">
@@ -174,6 +194,7 @@
           <button class="closeBtn" id="closeModal" type="button">Close</button>
         </div>
         <div class="modalBody">
+          <!-- Auth view -->
           <div class="stack" id="authView">
             <div class="label">Enter password</div>
             <input class="input" id="pwd" type="password" placeholder="••••••••" autocomplete="off" />
@@ -181,6 +202,7 @@
             <div class="error" id="err"></div>
           </div>
 
+          <!-- Quotes view -->
           <div class="stack" id="listView" style="display:none;">
             <div class="label">Quotes</div>
             <ul class="list" id="quoteList"></ul>
@@ -190,9 +212,11 @@
     </div>
 
     <script>
+      /* Content */
       const WORDS = ["race", "Woke", "quack", "waw", "teenage tech"];
-      const ADMIN_PASS = "race-admin"; // change password here
+      const ADMIN_PASS = "race-admin"; // change the password here
 
+      /* DOM */
       const wordEl = document.getElementById("word");
       const nextBtn = document.getElementById("nextBtn");
       const hotspot = document.getElementById("adminHotspot");
@@ -204,30 +228,30 @@
       const submitPwd = document.getElementById("submitPwd");
       const err = document.getElementById("err");
       const quoteList = document.getElementById("quoteList");
+      const modalTitle = document.getElementById("modalTitle");
 
+      /* Word cycling */
       function pickNext(current) {
         const choices = WORDS.filter(w => w !== current);
         return choices[Math.floor(Math.random() * choices.length)];
       }
-
       nextBtn.addEventListener("click", () => {
-        const current = wordEl.textContent;
-        wordEl.textContent = pickNext(current);
+        wordEl.textContent = pickNext(wordEl.textContent);
       });
 
+      /* Modal control */
       function openModal() {
         backdrop.setAttribute("aria-hidden", "false");
         err.textContent = "";
         authView.style.display = "";
         listView.style.display = "none";
+        modalTitle.textContent = "Admin";
         pwdInput.value = "";
         setTimeout(() => pwdInput.focus(), 0);
       }
-
       function closeModal() {
         backdrop.setAttribute("aria-hidden", "true");
       }
-
       function showQuotes() {
         quoteList.innerHTML = "";
         WORDS.forEach(q => {
@@ -236,30 +260,31 @@
           quoteList.appendChild(li);
         });
       }
-
       function submitPassword() {
         if (pwdInput.value === ADMIN_PASS) {
           authView.style.display = "none";
           listView.style.display = "";
+          modalTitle.textContent = "Quotes";
           showQuotes();
-          document.getElementById("modalTitle").textContent = "Quotes";
         } else {
           err.textContent = "Incorrect password. Try again.";
           pwdInput.select();
         }
       }
 
+      /* Wire events */
       hotspot.addEventListener("click", openModal);
       closeModalBtn.addEventListener("click", closeModal);
       submitPwd.addEventListener("click", submitPassword);
-      pwdInput.addEventListener("keydown", e => {
+      pwdInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") submitPassword();
         if (e.key === "Escape") closeModal();
       });
-      backdrop.addEventListener("click", e => {
+      backdrop.addEventListener("click", (e) => {
         if (e.target === backdrop) closeModal();
       });
     </script>
   </body>
 </html>
+
 
