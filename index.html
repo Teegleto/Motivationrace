@@ -21,6 +21,10 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        -webkit-user-select: none; /* Disable text selection on Safari */
+        -moz-user-select: none;    /* Disable on Firefox */
+        -ms-user-select: none;     /* Disable on old IE */
+        user-select: none;         /* Disable text selection globally */
       }
 
       .container {
@@ -53,6 +57,10 @@
         font-weight: 600;
         cursor: pointer;
         transition: all 120ms ease;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
       }
 
       #nextBtn:hover {
@@ -111,5 +119,6 @@
     </script>
   </body>
 </html>
+
 
 
