@@ -65,20 +65,20 @@
       #nextBtn:active { transform: translateY(1px); }
       #nextBtn:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
 
-      /* Invisible admin hotspot in bottom-right */
+      /* Invisible admin hotspot: exactly 1 inch x 1 inch */
       #adminHotspot {
         position: fixed;
-        right: 12px;
-        bottom: 12px;
-        width: 56px;
-        height: 56px;
+        right: 0.3in;
+        bottom: 0.3in;
+        width: 1in;
+        height: 1in;
         background: transparent;
         border: none;
         padding: 0;
         margin: 0;
-        opacity: 0;              /* invisible */
+        opacity: 0; /* fully invisible */
         cursor: pointer;
-        /* still accessible via keyboard */
+        z-index: 20;
       }
 
       /* Modal backdrop + dialog */
@@ -137,7 +137,6 @@
         opacity: 0.8;
       }
 
-      /* Styled input that still can't be text-selected outside caret */
       .input {
         width: 100%;
         padding: 0.8rem 0.9rem;
@@ -146,7 +145,6 @@
         font: inherit;
         color: var(--fg);
         background: #ffffff;
-        /* user-select: text;  <- Leave disabled globally as requested */
         caret-color: auto;
       }
 
@@ -199,8 +197,8 @@
       <button id="nextBtn" type="button">Change word</button>
     </div>
 
-    <!-- Invisible admin hotspot -->
-    <button id="adminHotspot" title=" " aria-label="Open admin"></button>
+    <!-- Larger invisible admin hotspot -->
+    <button id="adminHotspot" aria-label="Open admin"></button>
 
     <!-- Modal -->
     <div class="backdrop" id="backdrop" aria-hidden="true">
@@ -210,7 +208,7 @@
           <button class="closeBtn" id="closeModal" type="button">Close</button>
         </div>
         <div class="modalBody" id="modalBody">
-          <!-- Auth view (default) -->
+          <!-- Auth view -->
           <div class="stack" id="authView">
             <div class="label">Enter password</div>
             <input class="input" id="pwd" type="password" placeholder="••••••••" autocomplete="off" />
@@ -220,7 +218,7 @@
             <div class="error" id="err"></div>
           </div>
 
-          <!-- Quotes view (hidden until authed) -->
+          <!-- Quotes view -->
           <div class="stack" id="listView" style="display:none;">
             <div class="label">Quotes</div>
             <ul class="list" id="quoteList"></ul>
@@ -230,10 +228,8 @@
     </div>
 
     <script>
-      /* ===== Content ===== */
       const WORDS = ["race", "Woke", "quack", "waw", "teenage tech"];
 
-      /* ===== DOM ===== */
       const wordEl = document.getElementById("word");
       const nextBtn = document.getElementById("nextBtn");
 
@@ -242,14 +238,12 @@
       const closeModalBtn = document.getElementById("closeModal");
       const authView = document.getElementById("authView");
       const listView = document.getElementById("listView");
-      const modalBody = document.getElementById("modalBody");
       const pwdInput = document.getElementById("pwd");
       const submitPwd = document.getElementById("submitPwd");
       const err = document.getElementById("err");
       const quoteList = document.getElementById("quoteList");
 
-      /* ===== Password (change this) ===== */
-      const ADMIN_PASS = "race-admin"; // set your password here
+      const ADMIN_PASS = "race-admin"; // Change password here
 
       function pickNext(current) {
         const choices = WORDS.filter(w => w !== current);
@@ -261,13 +255,11 @@
         wordEl.textContent = pickNext(current);
       });
 
-      /* ===== Admin Modal ===== */
       function openModal() {
         backdrop.setAttribute("aria-hidden", "false");
         err.textContent = "";
         authView.style.display = "";
         listView.style.display = "none";
-        // Clear and focus the password input
         pwdInput.value = "";
         setTimeout(() => pwdInput.focus(), 0);
       }
@@ -277,7 +269,6 @@
       }
 
       function showQuotes() {
-        // Populate list from WORDS
         quoteList.innerHTML = "";
         WORDS.forEach(q => {
           const li = document.createElement("li");
@@ -289,43 +280,30 @@
       function submitPassword() {
         const v = pwdInput.value;
         if (v === ADMIN_PASS) {
-          // success: show list
           authView.style.display = "none";
           listView.style.display = "";
           document.getElementById("modalTitle").textContent = "Quotes";
           showQuotes();
         } else {
-          // failure: try again
           err.textContent = "Incorrect password. Try again.";
           pwdInput.select();
           pwdInput.focus();
         }
       }
 
-      // Open via invisible hotspot
       hotspot.addEventListener("click", openModal);
-
-      // Close modal
       closeModalBtn.addEventListener("click", closeModal);
       backdrop.addEventListener("click", (e) => {
-        // click outside the dialog closes (but not clicks inside)
         if (e.target === backdrop) closeModal();
       });
 
-      // Submit password via button or Enter key
       submitPwd.addEventListener("click", submitPassword);
       pwdInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") submitPassword();
         if (e.key === "Escape") closeModal();
       });
-
-      // Optional keyboard shortcut to open admin (Alt/Option + A)
-      document.addEventListener("keydown", (e) => {
-        if ((e.altKey || e.metaKey) && (e.key.toLowerCase() === "a")) {
-          openModal();
-        }
-      });
     </script>
   </body>
 </html>
+
 
