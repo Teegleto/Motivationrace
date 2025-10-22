@@ -22,8 +22,6 @@
         display: flex;
         align-items: center;
         justify-content: center;
-
-        /* Disable text selection everywhere (including future content) */
         -webkit-user-select: none;
         -moz-user-select: none;
         -ms-user-select: none;
@@ -63,25 +61,20 @@
       }
       #nextBtn:hover { background: #f1f3f7; }
       #nextBtn:active { transform: translateY(1px); }
-      #nextBtn:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
 
-      /* Invisible admin hotspot: exactly 1 inch x 1 inch */
+      /* TEST MODE: visible 1-inch admin button with black box */
       #adminHotspot {
         position: fixed;
         right: 0.3in;
         bottom: 0.3in;
         width: 1in;
         height: 1in;
-        background: transparent;
-        border: none;
-        padding: 0;
-        margin: 0;
-        opacity: 0; /* fully invisible */
+        border: 2px solid black; /* visible for testing */
+        background: rgba(0, 0, 0, 0.05);
         cursor: pointer;
         z-index: 20;
       }
 
-      /* Modal backdrop + dialog */
       .backdrop {
         position: fixed;
         inset: 0;
@@ -126,16 +119,10 @@
         cursor: pointer;
         font-weight: 600;
       }
-      .closeBtn:hover { background: #f7f7f8; }
 
       .modalBody { display: grid; gap: 0.75rem; }
-
       .stack { display: grid; gap: 0.5rem; }
-
-      .label {
-        font-size: 0.9rem;
-        opacity: 0.8;
-      }
+      .label { font-size: 0.9rem; opacity: 0.8; }
 
       .input {
         width: 100%;
@@ -147,8 +134,6 @@
         background: #ffffff;
         caret-color: auto;
       }
-
-      .row { display: flex; gap: 0.6rem; }
 
       .btn {
         appearance: none;
@@ -162,7 +147,6 @@
         transition: background 120ms ease, transform 120ms ease;
       }
       .btn:hover { background: #f1f3f7; }
-      .btn:active { transform: translateY(1px); }
 
       .error {
         color: #b00020;
@@ -170,25 +154,8 @@
         min-height: 1.2em;
       }
 
-      .list {
-        margin: 0;
-        padding-left: 1.2rem;
-      }
-      .list li {
-        margin: 0.25rem 0;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        :root { --bg: #111111; --fg: #ffffff; --muted: #2b2b2b; }
-        #nextBtn { background: #1e1e1e; border-color: var(--muted); color: #fff; }
-        #nextBtn:hover { background: #242424; }
-        .modal { background: #151515; }
-        .input { background: #0f0f0f; border-color: var(--muted); color: #fff; }
-        .btn { background: #1e1e1e; border-color: var(--muted); color: #fff; }
-        .btn:hover { background: #242424; }
-        .closeBtn { border-color: var(--muted); color: #fff; }
-        .closeBtn:hover { background: #1e1e1e; }
-      }
+      .list { margin: 0; padding-left: 1.2rem; }
+      .list li { margin: 0.25rem 0; }
     </style>
   </head>
   <body>
@@ -197,28 +164,23 @@
       <button id="nextBtn" type="button">Change word</button>
     </div>
 
-    <!-- Larger invisible admin hotspot -->
-    <button id="adminHotspot" aria-label="Open admin"></button>
+    <!-- Visible for testing -->
+    <button id="adminHotspot" aria-label="Open admin (testing box)"></button>
 
-    <!-- Modal -->
     <div class="backdrop" id="backdrop" aria-hidden="true">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modalHeader">
           <h2 class="title" id="modalTitle">Admin</h2>
           <button class="closeBtn" id="closeModal" type="button">Close</button>
         </div>
-        <div class="modalBody" id="modalBody">
-          <!-- Auth view -->
+        <div class="modalBody">
           <div class="stack" id="authView">
             <div class="label">Enter password</div>
             <input class="input" id="pwd" type="password" placeholder="••••••••" autocomplete="off" />
-            <div class="row">
-              <button class="btn" id="submitPwd" type="button">Submit</button>
-            </div>
+            <button class="btn" id="submitPwd" type="button">Submit</button>
             <div class="error" id="err"></div>
           </div>
 
-          <!-- Quotes view -->
           <div class="stack" id="listView" style="display:none;">
             <div class="label">Quotes</div>
             <ul class="list" id="quoteList"></ul>
@@ -229,10 +191,10 @@
 
     <script>
       const WORDS = ["race", "Woke", "quack", "waw", "teenage tech"];
+      const ADMIN_PASS = "race-admin"; // change password here
 
       const wordEl = document.getElementById("word");
       const nextBtn = document.getElementById("nextBtn");
-
       const hotspot = document.getElementById("adminHotspot");
       const backdrop = document.getElementById("backdrop");
       const closeModalBtn = document.getElementById("closeModal");
@@ -242,8 +204,6 @@
       const submitPwd = document.getElementById("submitPwd");
       const err = document.getElementById("err");
       const quoteList = document.getElementById("quoteList");
-
-      const ADMIN_PASS = "race-admin"; // Change password here
 
       function pickNext(current) {
         const choices = WORDS.filter(w => w !== current);
@@ -278,32 +238,28 @@
       }
 
       function submitPassword() {
-        const v = pwdInput.value;
-        if (v === ADMIN_PASS) {
+        if (pwdInput.value === ADMIN_PASS) {
           authView.style.display = "none";
           listView.style.display = "";
-          document.getElementById("modalTitle").textContent = "Quotes";
           showQuotes();
+          document.getElementById("modalTitle").textContent = "Quotes";
         } else {
           err.textContent = "Incorrect password. Try again.";
           pwdInput.select();
-          pwdInput.focus();
         }
       }
 
       hotspot.addEventListener("click", openModal);
       closeModalBtn.addEventListener("click", closeModal);
-      backdrop.addEventListener("click", (e) => {
-        if (e.target === backdrop) closeModal();
-      });
-
       submitPwd.addEventListener("click", submitPassword);
-      pwdInput.addEventListener("keydown", (e) => {
+      pwdInput.addEventListener("keydown", e => {
         if (e.key === "Enter") submitPassword();
         if (e.key === "Escape") closeModal();
+      });
+      backdrop.addEventListener("click", e => {
+        if (e.target === backdrop) closeModal();
       });
     </script>
   </body>
 </html>
-
 
