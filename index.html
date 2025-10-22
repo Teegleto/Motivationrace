@@ -4,11 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>race</title>
-    <meta name="description" content="Centered word with a button to cycle through words." />
+    <meta name="description" content="Centered word with a button to cycle; hidden admin modal with password gate." />
     <style>
       :root {
         --bg: #ffffff;
         --fg: #111111;
+        --muted: #e5e7eb;
       }
 
       html, body {
@@ -21,10 +22,12 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        -webkit-user-select: none; /* Disable text selection on Safari */
-        -moz-user-select: none;    /* Disable on Firefox */
-        -ms-user-select: none;     /* Disable on old IE */
-        user-select: none;         /* Disable text selection globally */
+
+        /* Disable text selection everywhere (including future content) */
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
       }
 
       .container {
@@ -49,50 +52,144 @@
       #nextBtn {
         appearance: none;
         background: #f8f9fb;
-        border: 1px solid #e5e7eb;
-        color: #111111;
+        border: 1px solid var(--muted);
+        color: var(--fg);
         padding: 0.9rem 1.4rem;
         border-radius: 999px;
         font-size: 1rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 120ms ease;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
+      }
+      #nextBtn:hover { background: #f1f3f7; }
+      #nextBtn:active { transform: translateY(1px); }
+      #nextBtn:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+
+      /* Invisible admin hotspot in bottom-right */
+      #adminHotspot {
+        position: fixed;
+        right: 12px;
+        bottom: 12px;
+        width: 56px;
+        height: 56px;
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin: 0;
+        opacity: 0;              /* invisible */
+        cursor: pointer;
+        /* still accessible via keyboard */
       }
 
-      #nextBtn:hover {
-        background: #f1f3f7;
+      /* Modal backdrop + dialog */
+      .backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+      }
+      .backdrop[aria-hidden="false"] { display: flex; }
+
+      .modal {
+        width: min(92vw, 520px);
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid var(--muted);
+        border-radius: 16px;
+        padding: 1.25rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
       }
 
-      #nextBtn:active {
-        transform: translateY(1px);
+      .modalHeader {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
       }
 
-      #nextBtn:focus-visible {
-        outline: 2px solid #111;
-        outline-offset: 3px;
+      .title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 0;
+      }
+
+      .closeBtn {
+        appearance: none;
+        background: transparent;
+        border: 1px solid var(--muted);
+        border-radius: 10px;
+        padding: 0.35rem 0.6rem;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .closeBtn:hover { background: #f7f7f8; }
+
+      .modalBody { display: grid; gap: 0.75rem; }
+
+      .stack { display: grid; gap: 0.5rem; }
+
+      .label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+
+      /* Styled input that still can't be text-selected outside caret */
+      .input {
+        width: 100%;
+        padding: 0.8rem 0.9rem;
+        border-radius: 12px;
+        border: 1px solid var(--muted);
+        font: inherit;
+        color: var(--fg);
+        background: #ffffff;
+        /* user-select: text;  <- Leave disabled globally as requested */
+        caret-color: auto;
+      }
+
+      .row { display: flex; gap: 0.6rem; }
+
+      .btn {
+        appearance: none;
+        border: 1px solid var(--muted);
+        background: #f8f9fb;
+        color: var(--fg);
+        padding: 0.8rem 1rem;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 120ms ease, transform 120ms ease;
+      }
+      .btn:hover { background: #f1f3f7; }
+      .btn:active { transform: translateY(1px); }
+
+      .error {
+        color: #b00020;
+        font-size: 0.95rem;
+        min-height: 1.2em;
+      }
+
+      .list {
+        margin: 0;
+        padding-left: 1.2rem;
+      }
+      .list li {
+        margin: 0.25rem 0;
       }
 
       @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #111111;
-          --fg: #ffffff;
-        }
-        body {
-          background: var(--bg);
-          color: var(--fg);
-        }
-        #nextBtn {
-          background: #1e1e1e;
-          color: white;
-          border-color: #333;
-        }
-        #nextBtn:hover {
-          background: #2a2a2a;
-        }
+        :root { --bg: #111111; --fg: #ffffff; --muted: #2b2b2b; }
+        #nextBtn { background: #1e1e1e; border-color: var(--muted); color: #fff; }
+        #nextBtn:hover { background: #242424; }
+        .modal { background: #151515; }
+        .input { background: #0f0f0f; border-color: var(--muted); color: #fff; }
+        .btn { background: #1e1e1e; border-color: var(--muted); color: #fff; }
+        .btn:hover { background: #242424; }
+        .closeBtn { border-color: var(--muted); color: #fff; }
+        .closeBtn:hover { background: #1e1e1e; }
       }
     </style>
   </head>
@@ -102,10 +199,57 @@
       <button id="nextBtn" type="button">Change word</button>
     </div>
 
+    <!-- Invisible admin hotspot -->
+    <button id="adminHotspot" title=" " aria-label="Open admin"></button>
+
+    <!-- Modal -->
+    <div class="backdrop" id="backdrop" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modalHeader">
+          <h2 class="title" id="modalTitle">Admin</h2>
+          <button class="closeBtn" id="closeModal" type="button">Close</button>
+        </div>
+        <div class="modalBody" id="modalBody">
+          <!-- Auth view (default) -->
+          <div class="stack" id="authView">
+            <div class="label">Enter password</div>
+            <input class="input" id="pwd" type="password" placeholder="••••••••" autocomplete="off" />
+            <div class="row">
+              <button class="btn" id="submitPwd" type="button">Submit</button>
+            </div>
+            <div class="error" id="err"></div>
+          </div>
+
+          <!-- Quotes view (hidden until authed) -->
+          <div class="stack" id="listView" style="display:none;">
+            <div class="label">Quotes</div>
+            <ul class="list" id="quoteList"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
+      /* ===== Content ===== */
       const WORDS = ["race", "Woke", "quack", "waw", "teenage tech"];
+
+      /* ===== DOM ===== */
       const wordEl = document.getElementById("word");
       const nextBtn = document.getElementById("nextBtn");
+
+      const hotspot = document.getElementById("adminHotspot");
+      const backdrop = document.getElementById("backdrop");
+      const closeModalBtn = document.getElementById("closeModal");
+      const authView = document.getElementById("authView");
+      const listView = document.getElementById("listView");
+      const modalBody = document.getElementById("modalBody");
+      const pwdInput = document.getElementById("pwd");
+      const submitPwd = document.getElementById("submitPwd");
+      const err = document.getElementById("err");
+      const quoteList = document.getElementById("quoteList");
+
+      /* ===== Password (change this) ===== */
+      const ADMIN_PASS = "race-admin"; // set your password here
 
       function pickNext(current) {
         const choices = WORDS.filter(w => w !== current);
@@ -116,9 +260,72 @@
         const current = wordEl.textContent;
         wordEl.textContent = pickNext(current);
       });
+
+      /* ===== Admin Modal ===== */
+      function openModal() {
+        backdrop.setAttribute("aria-hidden", "false");
+        err.textContent = "";
+        authView.style.display = "";
+        listView.style.display = "none";
+        // Clear and focus the password input
+        pwdInput.value = "";
+        setTimeout(() => pwdInput.focus(), 0);
+      }
+
+      function closeModal() {
+        backdrop.setAttribute("aria-hidden", "true");
+      }
+
+      function showQuotes() {
+        // Populate list from WORDS
+        quoteList.innerHTML = "";
+        WORDS.forEach(q => {
+          const li = document.createElement("li");
+          li.textContent = q;
+          quoteList.appendChild(li);
+        });
+      }
+
+      function submitPassword() {
+        const v = pwdInput.value;
+        if (v === ADMIN_PASS) {
+          // success: show list
+          authView.style.display = "none";
+          listView.style.display = "";
+          document.getElementById("modalTitle").textContent = "Quotes";
+          showQuotes();
+        } else {
+          // failure: try again
+          err.textContent = "Incorrect password. Try again.";
+          pwdInput.select();
+          pwdInput.focus();
+        }
+      }
+
+      // Open via invisible hotspot
+      hotspot.addEventListener("click", openModal);
+
+      // Close modal
+      closeModalBtn.addEventListener("click", closeModal);
+      backdrop.addEventListener("click", (e) => {
+        // click outside the dialog closes (but not clicks inside)
+        if (e.target === backdrop) closeModal();
+      });
+
+      // Submit password via button or Enter key
+      submitPwd.addEventListener("click", submitPassword);
+      pwdInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submitPassword();
+        if (e.key === "Escape") closeModal();
+      });
+
+      // Optional keyboard shortcut to open admin (Alt/Option + A)
+      document.addEventListener("keydown", (e) => {
+        if ((e.altKey || e.metaKey) && (e.key.toLowerCase() === "a")) {
+          openModal();
+        }
+      });
     </script>
   </body>
 </html>
-
-
 
