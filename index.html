@@ -22,13 +22,20 @@
     }
     #nextBtn:hover{ background:#f1f3f7; } #nextBtn:active{ transform:translateY(1px); }
 
-    /* Visible 1-inch admin button (testing). Make invisible later if you want. */
-    #adminHotspot{
-      position:fixed; right:0.3in; bottom:0.3in;
-      width:max(1in,96px); height:max(1in,96px);
-      border:2px solid #000; background:rgba(0,0,0,.06);
-      cursor:pointer; z-index:2147483647; pointer-events:auto;
-    }
+      /* Invisible 1-inch admin hotspot */
+  #adminHotspot {
+    position: fixed;
+    right: 0.3in;
+    bottom: 0.3in;
+    width: max(1in, 96px);
+    height: max(1in, 96px);
+    background: transparent;
+    border: none;
+    opacity: 0; /* invisible but still clickable */
+    cursor: pointer;
+    z-index: 2147483647;
+    pointer-events: auto;
+  }
 
     /* Modal */
     .backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:2147483000; }
