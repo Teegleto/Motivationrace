@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>race</title>
-  <meta name="description" content="Centered word with a button to cycle; admin with persistent quotes via GitHub API." />
+  <meta name="description" content="Centered word with a button to cycle; admin with persistent quotes via GitHub API and auto-refresh after rebuild." />
   <style>
     :root { --bg:#fff; --fg:#111; --muted:#e5e7eb; }
     html,body{
@@ -22,7 +22,7 @@
     }
     #nextBtn:hover{ background:#f1f3f7; } #nextBtn:active{ transform:translateY(1px); }
 
-    /* Visible 1-inch admin test button (black box) */
+    /* Visible 1-inch admin button (testing). Make invisible later if you want. */
     #adminHotspot{
       position:fixed; right:0.3in; bottom:0.3in;
       width:max(1in,96px); height:max(1in,96px);
@@ -48,7 +48,7 @@
     .row{ display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
     .label{ font-size:.9rem; opacity:.8; }
 
-    /* inputs/buttons inside modal: still non-select outside, but inputs are usable */
+    /* Inputs/buttons inside modal */
     .input, .token{
       width:100%; padding:.8rem .9rem; border-radius:12px; border:1px solid var(--muted);
       font:inherit; color:var(--fg); background:#fff; caret-color:auto;
@@ -63,6 +63,7 @@
     .danger{ border-color:#ef4444; color:#ef4444; background:#fff; }
     .danger:hover{ background:#fff2f2; }
     .error{ color:#b00020; min-height:1.2em; }
+    .ok{ color:#16a34a; min-height:1.2em; }
     .list{ margin:0; padding-left:1.1rem; }
     .list li{ margin:.2rem 0; display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
     .pill{ padding:.2rem .6rem; border:1px solid var(--muted); border-radius:999px; font-size:.8rem; }
@@ -75,6 +76,7 @@
       .input, .token{ background:#0f0f0f; border-color:var(--muted); color:#fff; }
       .closeBtn{ border-color:var(--muted); color:#fff; }
       .closeBtn:hover{ background:#1e1e1e; }
+      #adminHotspot{ border-color:#666; background:rgba(255,255,255,.08); }
     }
   </style>
 </head>
@@ -84,7 +86,7 @@
     <button id="nextBtn" type="button">Change word</button>
   </div>
 
-  <!-- Admin test button (visible box). Remove border+bg later to hide. -->
+  <!-- Admin button (testing visible). Make transparent later if desired. -->
   <button id="adminHotspot" aria-label="Open admin"></button>
 
   <!-- Modal -->
@@ -126,7 +128,7 @@
           </div>
 
           <div class="error" id="saveErr"></div>
-          <div class="small" id="saveOk" style="color:#16a34a;"></div>
+          <div class="ok" id="saveOk"></div>
         </div>
 
         <!-- Settings view (GitHub token) -->
@@ -232,7 +234,7 @@
   }
 
   async function fetchQuotes() {
-    // Always fetch fresh
+    // Always fetch fresh (cache-bust)
     try {
       const res = await fetch("quotes.json?ts=" + Date.now(), { cache: "no-store" });
       const data = await res.json();
@@ -288,24 +290,22 @@
   }
 
   function loadSettings() {
-    ghToken.value = localStorage.getItem("gh_token") || "";
-    ghOwner.value = localStorage.getItem("gh_owner") || ""; // e.g. teegleto
-    ghRepo.value  = localStorage.getItem("gh_repo")  || ""; // e.g. race-site
-    ghBranch.value= localStorage.getItem("gh_branch")|| "main";
+    ghToken.value  = localStorage.getItem("gh_token")   || "";
+    ghOwner.value  = localStorage.getItem("gh_owner")   || "";
+    ghRepo.value   = localStorage.getItem("gh_repo")    || "";
+    ghBranch.value = localStorage.getItem("gh_branch")  || "main";
     settingsStatus.textContent = ghToken.value ? "Token saved" : "Not saved";
   }
-
   function saveSettings() {
-    localStorage.setItem("gh_token", ghToken.value.trim());
-    localStorage.setItem("gh_owner", ghOwner.value.trim());
-    localStorage.setItem("gh_repo", ghRepo.value.trim());
+    localStorage.setItem("gh_token",  ghToken.value.trim());
+    localStorage.setItem("gh_owner",  ghOwner.value.trim());
+    localStorage.setItem("gh_repo",   ghRepo.value.trim());
     localStorage.setItem("gh_branch", ghBranch.value.trim() || "main");
     settingsStatus.textContent = ghToken.value ? "Token saved" : "Not saved";
   }
-
   function clearSettings() {
     localStorage.removeItem("gh_token");
-    settingsStatus.textContent = "Not saved";
+    settingsStatus.textContent = "Token cleared";
     ghToken.value = "";
   }
 
@@ -342,8 +342,10 @@
     modalTitle.textContent = "Settings";
   }
 
+  // ---- SAVE & AUTO-REFRESH AFTER REBUILD ----
   async function handleSave() {
-    saveErr.textContent = ""; saveOk.textContent = "";
+    saveErr.textContent = "";
+    saveOk.textContent = "";
     const owner  = localStorage.getItem("gh_owner")  || ghOwner.value.trim();
     const repo   = localStorage.getItem("gh_repo")   || ghRepo.value.trim();
     const branch = localStorage.getItem("gh_branch") || ghBranch.value.trim() || "main";
@@ -358,14 +360,40 @@
       const content = JSON.stringify(QUOTES, null, 2) + "\n";
       const contentB64 = utf8ToBase64(content);
       let sha = null;
-      try { sha = await getFileSha(owner, repo, "quotes.json", branch); } catch(e){ /* first time or moved */ }
+      try { sha = await getFileSha(owner, repo, "quotes.json", branch); } catch(e){}
 
-      await putFile(owner, repo, "quotes.json", branch, "Update quotes.json via site admin", contentB64, sha || undefined);
+      await putFile(
+        owner,
+        repo,
+        "quotes.json",
+        branch,
+        "Update quotes.json via site admin",
+        contentB64,
+        sha || undefined
+      );
 
-      saveOk.textContent = "Saved! (quotes.json updated)";
-      // bust cache and refresh QUOTES for this tab too
-      await fetchQuotes();
-      renderList();
+      saveOk.textContent = "Saved! (quotes.json updated — waiting for rebuild...)";
+
+      // Poll for rebuild completion by watching file SHA
+      const initialHash = await getFileSha(owner, repo, "quotes.json", branch);
+      setTimeout(async () => {
+        let newHash = initialHash;
+        const start = Date.now();
+        const maxWait = 2 * 60 * 1000; // up to 2 minutes
+        while (Date.now() - start < maxWait) {
+          await new Promise(r => setTimeout(r, 5000)); // every 5s
+          try {
+            newHash = await getFileSha(owner, repo, "quotes.json", branch);
+            if (newHash !== initialHash) {
+              saveOk.textContent = "Rebuild detected — refreshing...";
+              // small delay so user can see the message
+              setTimeout(() => location.reload(), 800);
+              return;
+            }
+          } catch {}
+        }
+        saveOk.textContent = "Rebuild not detected yet — refresh manually if needed.";
+      }, 10000); // start after 10s
     } catch (e) {
       saveErr.textContent = e.message || String(e);
     }
@@ -397,11 +425,10 @@
   openSettings.addEventListener("click", showSettings);
   backToList.addEventListener("click", showList);
   saveSettingsBtn.addEventListener("click", () => { saveSettings(); settingsStatus.textContent = "Saved"; });
-  clearSettingsBtn.addEventListener("click", () => { clearSettings(); settingsStatus.textContent = "Token cleared"; });
+  clearSettingsBtn.addEventListener("click", () => { clearSettings(); });
 
   // Init
   fetchQuotes();
 </script>
 </body>
 </html>
-
