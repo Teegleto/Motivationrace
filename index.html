@@ -49,29 +49,34 @@
     #nextBtn:hover{ background:#f1f3f7; }
     #nextBtn:active{ transform:translateY(1px); }
 
-    /* Invisible hotspots.
-       While testing you can add border/background to see them.
-       Bottom-right = edit quotes for current mode.
-       Bottom-left  = toggle modes (main <-> alt). */
-    #hotspotMainEdit,
-    #hotspotAltMode {
+    /* TEST MODE: visible hotspots so you can see/click them */
+    .hotspotBox {
       position:fixed;
       width:max(1in,96px);
       height:max(1in,96px);
-      background:transparent;
-      border:none;
-      opacity:0;          /* invisible but clickable */
+      background:rgba(0,0,0,0.8);
+      color:#fff;
+      font-size:12px;
+      font-family:system-ui, sans-serif;
+      font-weight:600;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border:2px solid #000;
+      border-radius:8px;
       cursor:pointer;
       z-index:2147483647;
       pointer-events:auto;
+      text-align:center;
+      line-height:1.2;
     }
 
-    #hotspotMainEdit{
+    #hotspotMainEdit {
       right:0.3in;
       bottom:0.3in;
     }
 
-    #hotspotAltMode{
+    #hotspotAltMode {
       left:0.3in;
       bottom:0.3in;
     }
@@ -220,10 +225,10 @@
   </div>
 
   <!-- Bottom-right hotspot: edit quotes for current mode -->
-  <button id="hotspotMainEdit" aria-label="Open editor"></button>
+  <button id="hotspotMainEdit" class="hotspotBox">EDIT</button>
 
-  <!-- Bottom-left hotspot: toggle mode (main <-> alt) -->
-  <button id="hotspotAltMode" aria-label="Toggle alt mode"></button>
+  <!-- Bottom-left hotspot: toggle modes -->
+  <button id="hotspotAltMode" class="hotspotBox">MODE</button>
 
   <!-- Shared modal -->
   <div class="backdrop" id="backdrop" aria-hidden="true">
@@ -316,16 +321,10 @@
      CONFIG / PASSWORDS
      =========================== */
 
-  // Password to EDIT main quotes
-  const PASS_MAIN_EDIT = "race-admin";
+  const PASS_MAIN_EDIT = "race-admin"; // edit main quotes
+  const PASS_ALT       = "woke";       // enter alt mode + edit alt quotes
+  const PASS_SETTINGS  = "quack";      // unlock token settings
 
-  // Password to view alt mode AND edit alt quotes
-  const PASS_ALT = "woke";
-
-  // Password to unlock GitHub token settings
-  const PASS_SETTINGS = "quack";
-
-  // Files in repo
   const FILE_MAIN = "quotes_main.json";
   const FILE_ALT  = "quotes_alt.json";
 
@@ -333,20 +332,21 @@
      STATE
      =========================== */
 
-  // MODE is not persisted anymore.
-  // Page load always starts in normal ("main") mode.
-  let MODE = "main";
+  // Always default to main mode on page load
+  let MODE = "main"; // "main" or "alt"
 
-  // quotes in current mode
+  // modal flow mode:
+  //  - "edit-main"
+  //  - "edit-alt"
+  //  - "switch-alt"
+  //  - "settings-auth"
+  let currentFlow = null;
+
   let QUOTES = [];
   let WORD = "race";
 
-  // For modal logic
-  // "edit-main", "edit-alt", "switch-alt", "settings-auth"
-  let currentFlow = null;
-
   /* ===========================
-     DOM LOOKUPS
+     DOM
      =========================== */
 
   const wordEl = document.getElementById("word");
@@ -359,20 +359,17 @@
   const closeModalBtn = document.getElementById("closeModal");
   const modalTitle = document.getElementById("modalTitle");
 
-  // views
   const authView = document.getElementById("authView");
   const listView = document.getElementById("listView");
   const settingsAuthView = document.getElementById("settingsAuthView");
   const settingsView = document.getElementById("settingsView");
 
-  // auth controls
   const authLabel = document.getElementById("authLabel");
   const authHint = document.getElementById("authHint");
   const pwdInput = document.getElementById("pwd");
   const submitPwd = document.getElementById("submitPwd");
   const err = document.getElementById("err");
 
-  // quotes editor
   const quoteList = document.getElementById("quoteList");
   const newQuote = document.getElementById("newQuote");
   const addQuote = document.getElementById("addQuote");
@@ -382,14 +379,12 @@
   const whichFileLabel = document.getElementById("whichFileLabel");
   const quotesHeading = document.getElementById("quotesHeading");
 
-  // settings section
   const openSettingsBtn = document.getElementById("openSettings");
   const settingsPwd = document.getElementById("settingsPwd");
   const submitSettingsPwd = document.getElementById("submitSettingsPwd");
   const settingsErr = document.getElementById("settingsErr");
   const cancelSettingsAuth = document.getElementById("cancelSettingsAuth");
 
-  // settings view controls
   const ghToken = document.getElementById("ghToken");
   const ghOwner = document.getElementById("ghOwner");
   const ghRepo = document.getElementById("ghRepo");
@@ -527,8 +522,6 @@
   }
 
   function saveSettings(){
-    // Persist in localStorage so this browser keeps it after reload.
-    // NOTE: cannot sync this safely to other devices without exposing your token publicly.
     localStorage.setItem("gh_token",  ghToken.value.trim());
     localStorage.setItem("gh_owner",  ghOwner.value.trim());
     localStorage.setItem("gh_repo",   ghRepo.value.trim());
@@ -543,7 +536,7 @@
   }
 
   /* ===========================
-     MODAL / VIEW CONTROL
+     MODAL + VIEW CONTROL
      =========================== */
 
   function openBackdrop(){
@@ -625,54 +618,48 @@
   }
 
   /* ===========================
-     ACTION WIRING
+     EVENT WIRING
      =========================== */
 
-  // Bottom-right hotspot:
-  // If MODE="main" -> require PASS_MAIN_EDIT, then open editor for main
-  // If MODE="alt"  -> require PASS_ALT, then open editor for alt
+  // Bottom-right hotspot ("EDIT")
   hotspotMainEdit.addEventListener("click", () => {
     if (MODE === "alt"){
-      showAuthView("edit-alt");
+      showAuthView("edit-alt");   // requires PASS_ALT ("woke")
     } else {
-      showAuthView("edit-main");
+      showAuthView("edit-main");  // requires PASS_MAIN_EDIT ("race-admin")
     }
   });
 
-  // Bottom-left hotspot:
-  // If MODE="main": ask for PASS_ALT ("woke") to switch into alt mode
-  // If MODE="alt": instantly switch back to main mode with NO password
+  // Bottom-left hotspot ("MODE")
   hotspotAltMode.addEventListener("click", async () => {
     if (MODE === "alt"){
-      // go back to main, no password prompt
+      // go back to main mode immediately, no password
       MODE = "main";
       await refreshModeData();
-      // no modal needed
     } else {
-      // MODE === "main": need password to enter alt
+      // currently in main mode, need PASS_ALT ("woke") to switch to alt
       showAuthView("switch-alt");
     }
   });
 
-  // "Settings" button in the quote editor
+  // Settings from inside list editor
   openSettingsBtn.addEventListener("click", () => {
-    // protected by PASS_SETTINGS
-    showSettingsAuthView();
+    showSettingsAuthView(); // requires PASS_SETTINGS ("quack")
   });
 
-  // Close modal
+  // modal close
   closeModalBtn.addEventListener("click", closeBackdrop);
   backdrop.addEventListener("click",(e)=>{
     if (e.target === backdrop) closeBackdrop();
   });
 
-  // Change word button
+  // next word button
   nextBtn.addEventListener("click", () => {
     WORD = pickNext(wordEl.textContent);
     wordEl.textContent = WORD;
   });
 
-  // Add a new quote
+  // add quote
   addQuote.addEventListener("click", () => {
     const v = newQuote.value.trim();
     if (!v) return;
@@ -681,12 +668,12 @@
     renderList();
   });
 
-  // Back from settings to list
+  // back from settings screen to list screen
   backToListBtn.addEventListener("click", () => {
     showListView();
   });
 
-  // Cancel settings auth
+  // cancel settings auth
   cancelSettingsAuth.addEventListener("click", () => {
     if (listView.style.display === ""){
       showListView();
@@ -695,37 +682,36 @@
     }
   });
 
-  // Save settings (token/repo info) locally
+  // save settings (token / repo info)
   saveSettingsBtn.addEventListener("click", () => {
     saveSettings();
     settingsStatus.textContent = "Saved";
   });
 
-  // Clear token
   clearSettingsBtn.addEventListener("click", () => {
     clearSettings();
     settingsStatus.textContent = "Token cleared";
   });
 
-  // Submit main/alt/admin password
+  // submit pwd in auth modal
   submitPwd.addEventListener("click", handleAuthSubmit);
   pwdInput.addEventListener("keydown",(e)=>{
     if (e.key==="Enter") handleAuthSubmit();
     if (e.key==="Escape") closeBackdrop();
   });
 
-  // Submit settings password
+  // submit pwd for settings auth
   submitSettingsPwd.addEventListener("click", handleSettingsAuthSubmit);
   settingsPwd.addEventListener("keydown",(e)=>{
     if (e.key==="Enter") handleSettingsAuthSubmit();
     if (e.key==="Escape") closeBackdrop();
   });
 
-  // Save quotes to GitHub
+  // save quotes to GitHub
   saveQuotesBtn.addEventListener("click", handleSaveQuotesToGitHub);
 
   /* ===========================
-     AUTH HANDLERS
+     PASSWORD HANDLERS
      =========================== */
 
   async function handleAuthSubmit(){
@@ -804,7 +790,7 @@
       try {
         sha = await getFileSha(owner, repo, filePath, branch);
       } catch(e){
-        // ok if first time
+        // file may not exist yet, ignore
       }
 
       await putFile(
@@ -832,8 +818,7 @@
             newHash = await getFileSha(owner, repo, filePath, branch);
             if (newHash !== initialHash) {
               saveOk.textContent = "Rebuild detected — refreshing...";
-              // IMPORTANT: we do NOT persist MODE now.
-              // After reload, site will always come back in main mode.
+              // We always reset to MODE="main" on reload anyway.
               setTimeout(()=>location.reload(),800);
               return;
             }
@@ -852,9 +837,12 @@
      INIT
      =========================== */
 
-  // Always start in main mode after refresh
-  MODE = "main";
-  refreshModeData();
+  async function init(){
+    MODE = "main";        // always reset to main on load
+    await refreshModeData();
+  }
+
+  init();
 </script>
 </body>
 </html>
